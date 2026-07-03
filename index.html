@@ -85,16 +85,6 @@
     .badge-paid   { background: #dcfce7; color: #166534; }
     .badge-recv   { background: #dbeafe; color: #1e40af; }
 
-    /* Setup screen */
-    #setupScreen { position: fixed; inset: 0; background: var(--bg); z-index: 100; overflow-y: auto; padding: 24px 16px; }
-    #setupScreen h2 { color: var(--accent-dark); margin: 0 0 6px; }
-    #setupScreen .logo { font-size: 48px; text-align: center; margin-bottom: 12px; }
-    .setup-hint { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 6px; }
-    .setup-hint a { color: var(--accent-dark); }
-    .step { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.07); }
-    .step-num { display: inline-block; background: var(--accent); color: #fff; border-radius: 99px; width: 22px; height: 22px; text-align: center; line-height: 22px; font-size: 12px; font-weight: 700; margin-right: 6px; }
-    .step h3 { display: inline; font-size: 14px; margin: 0; }
-
     /* Bottom nav */
     nav.bottom { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--border); display: flex; z-index: 10; }
     nav.bottom button { flex: 1; background: none; border: none; border-radius: 0; padding: 10px 4px 8px; font-size: 11px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 2px; }
@@ -121,35 +111,6 @@
 </head>
 <body>
 
-<!-- ===== SETUP SCREEN (first time) ===== -->
-<div id="setupScreen">
-  <div style="max-width:500px;margin:0 auto;">
-    <div class="logo">🖨️</div>
-    <h2 style="text-align:center;">ร้านน้องวิว</h2>
-    <p style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:20px;">ตั้งค่าการเชื่อมต่อก่อนเริ่มใช้งาน</p>
-
-    <div class="step">
-      <span class="step-num">1</span><h3>Google Apps Script Web App URL</h3>
-      <p class="setup-hint" style="margin-top:8px;">เปิด Google Sheet เดิม → Extensions → Apps Script → วาง Code.gs → Deploy → New deployment → Web app (Who has access: Anyone) → คัดลอก URL</p>
-      <div class="field" style="margin:0;">
-        <input type="url" id="setupGasUrl" placeholder="https://script.google.com/macros/s/.../exec">
-      </div>
-      <button class="btn-sm" id="testGasBtn" style="margin-top:8px;">🔗 ทดสอบการเชื่อมต่อ</button>
-      <div id="gasTestResult" style="font-size:12px;margin-top:6px;"></div>
-    </div>
-
-    <div class="step">
-      <span class="step-num">2</span><h3>Gemini API Key (สำหรับอ่านรูปบิล)</h3>
-      <p class="setup-hint" style="margin-top:8px;">ขอฟรีได้ที่ <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com/app/apikey</a><br>⚠️ Key นี้เก็บไว้ในเครื่องของคุณเท่านั้น (localStorage) ไม่ส่งไปที่อื่น</p>
-      <div class="field" style="margin:0;">
-        <input type="password" id="setupGeminiKey" placeholder="AIza...">
-      </div>
-    </div>
-
-    <button class="btn-primary" id="saveSetupBtn" style="margin-top:4px;">✅ บันทึกและเริ่มใช้งาน</button>
-  </div>
-</div>
-
 <!-- ===== MAIN APP ===== -->
 <header>
   <h1>🖨️ ร้านน้องวิว</h1>
@@ -164,7 +125,7 @@
       <h2>1. ถ่าย / อัพโหลดบิลสินค้า</h2>
       <div class="upload-box">
         <label class="pick-label" for="imageInput">📷 เลือก / ถ่ายรูปบิล</label>
-        <input type="file" id="imageInput" accept="image/*" capture="environment">
+        <input type="file" id="imageInput" accept="image/*">
         <div class="hint" style="margin-top:8px;">ถ่ายให้เห็นตัวเลขชัด ไม่เอียง ไม่มีแสงสะท้อน</div>
         <img id="previewImg">
       </div>
@@ -305,25 +266,26 @@
   <!-- TAB: ตั้งค่า -->
   <section id="tab-settings">
     <div class="card">
-      <h2>⚙️ ตั้งค่าการเชื่อมต่อ</h2>
+      <h2>⚙️ การตั้งค่าปัจจุบัน</h2>
+      <p class="hint" style="margin-bottom:12px;">ค่าเหล่านี้ฝังอยู่ในไฟล์ <code>index.html</code> โดยตรง — ใช้งานได้ทุกเครื่อง ไม่ต้องกรอกใหม่</p>
       <div class="field">
-        <label>Google Apps Script Web App URL</label>
-        <input type="url" id="settingsGasUrl" placeholder="https://script.google.com/macros/s/.../exec">
+        <label>GAS Web App URL (ฝังในโค้ด)</label>
+        <input type="text" id="infoGasUrl" readonly style="background:#f9f9f9;color:var(--muted);font-size:12px;">
       </div>
       <div class="field">
         <label>Gemini API Key</label>
-        <input type="password" id="settingsGeminiKey" placeholder="AIza...">
+        <input type="text" value="เก็บใน GAS Script Properties — ปลอดภัย ไม่อยู่ในไฟล์นี้ ✅" readonly style="background:#f0fdf4;color:var(--success);font-size:12px;">
       </div>
-      <div style="display:flex;gap:8px;margin-top:4px;">
-        <button class="btn-sm" id="testSettingsBtn" style="flex:1;">🔗 ทดสอบ</button>
-        <button class="btn-primary" id="saveSettingsBtn" style="flex:2;padding:10px;">บันทึก</button>
-      </div>
+      <button class="btn-sm" id="testConnBtn" style="width:100%;margin-top:4px;">🔗 ทดสอบการเชื่อมต่อ</button>
       <div id="settingsStatus" class="hint" style="text-align:center;margin-top:8px;"></div>
     </div>
     <div class="card" style="border:1px dashed var(--border);background:#fafafa;">
-      <h2 style="color:var(--muted);font-size:13px;">ℹ️ เกี่ยวกับการตั้งค่า</h2>
-      <p class="hint">GAS URL และ Gemini API Key จะถูกเก็บไว้ในเครื่องของคุณ (localStorage) เท่านั้น ไม่มีการส่งข้อมูลเหล่านี้ออกไปที่ใดนอกจาก Google เอง</p>
-      <p class="hint">ถ้าเปลี่ยนเครื่องหรือ browser ต้องตั้งค่าใหม่</p>
+      <h2 style="color:var(--muted);font-size:13px;">📝 วิธีเปลี่ยนค่า</h2>
+      <p class="hint">เปิดไฟล์ <code>index.html</code> → หาบรรทัด <strong>CONFIG</strong> ด้านบนสุดของ &lt;script&gt; แล้วแก้ค่าในส่วน:</p>
+      <pre style="background:#1f2937;color:#a5f3fc;border-radius:8px;padding:10px;font-size:11px;overflow-x:auto;">const GAS_URL = 'ใส่ URL ใหม่ที่นี่';</pre>
+      <p class="hint" style="margin-top:8px;">Gemini API Key ไม่ต้องใส่ในไฟล์นี้ — เก็บไว้ใน <strong>GAS Script Properties</strong> อยู่แล้ว ปลอดภัย ✅</p>
+      <p class="hint" style="margin-top:8px;">จากนั้นอัพไฟล์ขึ้น GitHub ใหม่ — ทุกเครื่องที่เปิดลิงก์จะได้ค่าใหม่ทันที</p>
+      <p class="hint" style="color:var(--warn);">⚠️ ถ้า GitHub repo เป็น Public คนอื่นจะเห็น GAS URL ได้ แต่ไม่อันตรายเท่า Key เพราะต้องผ่านสิทธิ์ Google อยู่ดี — แนะนำ repo Private เพื่อความปลอดภัยสูงสุด</p>
     </div>
   </section>
 
@@ -347,13 +309,11 @@
 
 <script>
 // ============================================================
-// CONFIG (stored in localStorage)
+// ⚙️  CONFIG — แก้เพียงบรรทัดเดียว แล้วอัพไฟล์ขึ้น GitHub
 // ============================================================
-const CFG_GAS  = 'nw_gas_url';
-const CFG_GEM  = 'nw_gemini_key';
-
-function getCfg(key)      { return localStorage.getItem(key) || ''; }
-function setCfg(key, val) { localStorage.setItem(key, val); }
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDvPMbILyW2Z3tqpAisnH2B1KoX8Q6VuTcQ2alxrP5tp9b3IhaZLuvEsjYt6rMpdDX/exec';
+// Gemini API Key เก็บใน GAS Script Properties (ไม่ต้องใส่ที่นี่ — ปลอดภัยกว่า)
+// ============================================================
 
 // ============================================================
 // UTILITIES
@@ -386,7 +346,7 @@ function toast(msg, dur) {
 // API CALLS (to GAS backend)
 // ============================================================
 async function apiGet(action, extra) {
-  const url = new URL(getCfg(CFG_GAS));
+  const url = new URL(GAS_URL);
   url.searchParams.set('action', action);
   if (extra) Object.entries(extra).forEach(([k,v]) => url.searchParams.set(k, v));
   const res = await fetch(url.toString());
@@ -396,7 +356,7 @@ async function apiGet(action, extra) {
 }
 
 async function apiPost(payload) {
-  const url = getCfg(CFG_GAS);
+  const url = GAS_URL;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -408,78 +368,28 @@ async function apiPost(payload) {
 }
 
 // ============================================================
-// SETUP / SETTINGS SCREEN
+// SETTINGS TAB — แสดงค่าปัจจุบัน + ทดสอบการเชื่อมต่อ
 // ============================================================
-function checkSetup() {
-  const gasUrl = getCfg(CFG_GAS);
-  if (!gasUrl || !gasUrl.startsWith('https://script.google.com')) {
-    document.getElementById('setupScreen').style.display = 'block';
-  } else {
-    document.getElementById('setupScreen').style.display = 'none';
-    loadInit();
-  }
+function fillSettingsFields() {
+  document.getElementById('infoGasUrl').value = GAS_URL;
 }
 
-async function testGasConnection(url, resultElId) {
-  const el = document.getElementById(resultElId);
+document.getElementById('testConnBtn').addEventListener('click', async () => {
+  const el = document.getElementById('settingsStatus');
   el.textContent = 'กำลังทดสอบ...';
   el.style.color = 'var(--muted)';
   try {
-    const res = await fetch(url + '?action=ping');
+    const res  = await fetch(GAS_URL + '?action=ping');
     const data = await res.json();
     if (data.ok) {
-      el.textContent = '✅ เชื่อมต่อสำเร็จ';
+      el.textContent = '✅ เชื่อมต่อ GAS สำเร็จ';
       el.style.color = 'var(--success)';
-      return true;
-    } else {
-      throw new Error(JSON.stringify(data));
-    }
+    } else throw new Error(JSON.stringify(data));
   } catch (e) {
     el.textContent = '❌ เชื่อมต่อไม่ได้: ' + e.message;
     el.style.color = 'var(--danger)';
-    return false;
   }
-}
-
-document.getElementById('testGasBtn').addEventListener('click', () => {
-  const url = document.getElementById('setupGasUrl').value.trim();
-  if (!url) { alert('กรุณาใส่ GAS URL ก่อน'); return; }
-  testGasConnection(url, 'gasTestResult');
 });
-
-document.getElementById('saveSetupBtn').addEventListener('click', async () => {
-  const url = document.getElementById('setupGasUrl').value.trim();
-  const key = document.getElementById('setupGeminiKey').value.trim();
-  if (!url) { alert('กรุณาใส่ GAS URL ก่อน'); return; }
-  setCfg(CFG_GAS, url);
-  if (key) setCfg(CFG_GEM, key);
-  document.getElementById('setupScreen').style.display = 'none';
-  await loadInit();
-});
-
-// Settings tab
-document.getElementById('testSettingsBtn').addEventListener('click', () => {
-  const url = document.getElementById('settingsGasUrl').value.trim();
-  if (!url) { alert('กรุณาใส่ GAS URL ก่อน'); return; }
-  testGasConnection(url, 'settingsStatus');
-});
-document.getElementById('saveSettingsBtn').addEventListener('click', () => {
-  const url = document.getElementById('settingsGasUrl').value.trim();
-  const key = document.getElementById('settingsGeminiKey').value.trim();
-  if (!url) { alert('กรุณาใส่ GAS URL'); return; }
-  setCfg(CFG_GAS, url);
-  if (key) setCfg(CFG_GEM, key);
-  const el = document.getElementById('settingsStatus');
-  el.textContent = '✅ บันทึกแล้ว';
-  el.style.color = 'var(--success)';
-  toast('บันทึกการตั้งค่าแล้ว');
-});
-
-// Pre-fill settings fields
-function fillSettingsFields() {
-  document.getElementById('settingsGasUrl').value  = getCfg(CFG_GAS);
-  document.getElementById('settingsGeminiKey').value = getCfg(CFG_GEM) ? '••••••••' : '';
-}
 
 // ============================================================
 // TABS
@@ -555,8 +465,6 @@ function resizeImage(file, maxDim, quality) {
 
 document.getElementById('analyzeBtn').addEventListener('click', async () => {
   if (!imageInput.files.length) { alert('กรุณาเลือกหรือถ่ายรูปบิลก่อน'); return; }
-  const gemKey = getCfg(CFG_GEM);
-  if (!gemKey) { alert('ยังไม่ได้ตั้งค่า Gemini API Key — ไปที่แท็บ ⚙️ ตั้งค่า'); return; }
 
   setLoading(true, 'กำลังให้ AI อ่านภาพ...');
   try {
@@ -564,9 +472,8 @@ document.getElementById('analyzeBtn').addEventListener('click', async () => {
     const base64   = dataUrl.split(',')[1];
     const mimeType = dataUrl.match(/data:(.*);base64/)[1];
 
-    const prompt = buildGeminiPrompt();
-    const res    = await callGeminiWithRetry(gemKey, base64, mimeType, prompt);
-
+    // ส่งรูปไปให้ GAS เรียก Gemini แทน (Gemini Key อยู่ใน GAS Script Properties — ปลอดภัย)
+    const res = await apiPost({ action: 'analyzeImage', base64, mimeType });
     setLoading(false);
     onAnalyzeSuccess(res);
   } catch (e) {
@@ -574,46 +481,6 @@ document.getElementById('analyzeBtn').addEventListener('click', async () => {
     alert('AI อ่านภาพไม่สำเร็จ:\n' + e.message);
   }
 });
-
-function buildGeminiPrompt() {
-  return [
-    'คุณเป็นผู้ช่วยอ่านใบเสร็จ/บิลซื้อสินค้าเข้าร้านขายหมึกพิมพ์และเครื่องปริ้นเตอร์ในประเทศไทย',
-    'อ่านภาพที่แนบมาแล้วตอบกลับเป็น JSON เท่านั้น',
-    'รูปแบบ: {"date":"YYYY-MM-DD","supplier":"ชื่อผู้ขาย","items":[{"category":"ชื่อสินค้า","matched":true,"unit_price":0,"quantity":0,"amount":0}],"notes":""}',
-    'กฎ:',
-    '1) จับคู่ category กับลิสต์: ' + JSON.stringify(PRODUCTS) + ' — ถ้าตรงให้ใช้ชื่อเป๊ะ matched=true ถ้าไม่มีในลิสต์ matched=false',
-    '2) amount = unit_price × quantity เสมอ',
-    '3) ปี พ.ศ. ให้ลบ 543 ก่อนใส่ date',
-    '4) ถ้าอ่านวันที่ไม่ได้ ใส่วันที่วันนี้',
-    '5) บิลหลายรายการให้แยกเป็นหลาย item'
-  ].join('\n');
-}
-
-async function callGeminiWithRetry(apiKey, base64, mimeType, prompt, retries) {
-  retries = retries || 3;
-  const model = 'gemini-2.5-flash';
-  const url   = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
-  const body  = {
-    contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
-    generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
-  };
-  const transient = [429, 500, 503];
-
-  for (let i = 1; i <= retries; i++) {
-    const res  = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const code = res.status;
-    if (code === 200) {
-      const json = await res.json();
-      const cand = json.candidates && json.candidates[0];
-      if (!cand || !cand.content) throw new Error('ไม่พบผลลัพธ์จาก Gemini');
-      let raw = cand.content.parts.map(p => p.text || '').join('').replace(/```json|```/gi, '').trim();
-      return JSON.parse(raw);
-    }
-    if (!transient.includes(code)) throw new Error('Gemini API error ' + code + ': ' + await res.text());
-    if (i < retries) await new Promise(r => setTimeout(r, 1500 * i));
-  }
-  throw new Error('AI ยุ่งชั่วคราว กรุณารอ 1-2 นาทีแล้วลองใหม่');
-}
 
 function onAnalyzeSuccess(data) {
   document.getElementById('dateInput').value = data.date || today();
@@ -856,7 +723,11 @@ document.getElementById('setupMonthlyBtn').addEventListener('click', async () =>
 // INIT
 // ============================================================
 document.getElementById('dateInput').value = today();
-checkSetup();
+if (!GAS_URL || GAS_URL === 'PASTE_YOUR_GAS_URL_HERE') {
+  document.getElementById('headerSub').textContent = '⚠️ ยังไม่ได้ตั้งค่า GAS_URL ในโค้ด';
+} else {
+  loadInit();
+}
 </script>
 </body>
 </html>
