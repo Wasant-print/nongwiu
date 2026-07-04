@@ -72,7 +72,7 @@
 
     /* Period toggle */
     .period-toggle { display: flex; gap: 6px; margin-bottom: 12px; }
-    .period-toggle button { flex: 1; padding: 8px 4px; font-size: 13px; background: #fff; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; }
+    .period-toggle button { flex: 1; padding: 8px 4px; font-size: 13px; background: #fff; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; line-height: 1.4; }
     .period-toggle button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
     /* Charts */
@@ -311,13 +311,33 @@
 // ============================================================
 // ⚙️  CONFIG — แก้เพียงบรรทัดเดียว แล้วอัพไฟล์ขึ้น GitHub
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzDvPMbILyW2Z3tqpAisnH2B1KoX8Q6VuTcQ2alxrP5tp9b3IhaZLuvEsjYt6rMpdDX/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxPBsbkiqy-OpBvodE8FDYbUTX0pTubd8Q8IcCzQglW-CtVKnB5N4rUAspxrp8vFYns/exec';
 // Gemini API Key เก็บใน GAS Script Properties (ไม่ต้องใส่ที่นี่ — ปลอดภัยกว่า)
 // ============================================================
 
 // ============================================================
 // UTILITIES
 // ============================================================
+const THAI_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+function thaiDateLabel(period) {
+  const d  = new Date();
+  const dd = d.getDate();
+  const mm = THAI_MONTHS[d.getMonth()];
+  const yy = d.getFullYear() + 543;
+  if (period === 'day')  return dd + ' ' + mm + ' ' + yy;
+  if (period === 'year') return 'ปี พ.ศ. ' + yy;
+  return mm + ' ' + yy;
+}
+
+function updatePeriodButtons(active) {
+  ['day','month','year'].forEach(p => {
+    const btn  = document.getElementById('pg-'+p);
+    const base = p === 'day' ? 'วันนี้' : p === 'month' ? 'เดือนนี้' : 'ปีนี้';
+    btn.innerHTML = base + '<br><span style="font-size:10px;opacity:.85;font-weight:400;">' + thaiDateLabel(p) + '</span>';
+    btn.classList.toggle('active', p === active);
+  });
+}
 function esc(s) {
   return (s || '').toString()
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -702,7 +722,12 @@ function stopAutoRefresh()  { if (dashInterval) { clearInterval(dashInterval); d
 ['day','month','year'].forEach(p => {
   document.getElementById('pg-'+p).addEventListener('click', () => {
     currentPeriod = p;
-    ['day','month','year'].forEach(x => document.getElementById('pg-'+x).classList.toggle('active', x === p));
+    updatePeriodButtons(p);
+    // อัพเดท label ทันที ไม่ต้องรอ fetch
+    const base = p === 'day' ? 'วันนี้' : p === 'month' ? 'เดือนนี้' : 'ปีนี้';
+    document.getElementById('d-salesLabel').textContent  = 'ยอด' + base;
+    document.getElementById('d-catLabel').textContent    = base;
+    document.getElementById('d-sales').textContent       = '-';
     refreshDashboard();
   });
 });
@@ -728,6 +753,8 @@ document.getElementById('setupMonthlyBtn').addEventListener('click', async () =>
 // INIT
 // ============================================================
 document.getElementById('dateInput').value = today();
+document.getElementById('payDateInput').value = today();
+updatePeriodButtons('month');
 if (!GAS_URL || GAS_URL === 'PASTE_YOUR_GAS_URL_HERE') {
   document.getElementById('headerSub').textContent = '⚠️ ยังไม่ได้ตั้งค่า GAS_URL ในโค้ด';
 } else {
