@@ -343,25 +343,30 @@ function toast(msg, dur) {
 }
 
 // ============================================================
-// API CALLS (to GAS backend)
+// API CALLS
 // ============================================================
-async function apiGet(action, extra) {
+
+// ใช้ GET สำหรับทุก operation (รองรับ GAS redirect ได้ 100%)
+async function api(params) {
   const url = new URL(GAS_URL);
-  url.searchParams.set('action', action);
-  if (extra) Object.entries(extra).forEach(([k,v]) => url.searchParams.set(k, v));
+  Object.entries(params).forEach(([k, v]) => {
+    url.searchParams.set(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+  });
   const res = await fetch(url.toString());
+  if (!res.ok) throw new Error('เชื่อมต่อไม่ได้ HTTP ' + res.status);
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data;
 }
 
-async function apiPost(payload) {
-  const url = GAS_URL;
-  const res = await fetch(url, {
+// ใช้ POST เฉพาะ analyzeImage เท่านั้น (base64 ใหญ่เกินใส่ใน URL)
+async function apiPostImage(base64, mimeType) {
+  const res = await fetch(GAS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({ action: 'analyzeImage', base64, mimeType })
   });
+  if (!res.ok) throw new Error('เชื่อมต่อไม่ได้ HTTP ' + res.status);
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data;
@@ -379,8 +384,7 @@ document.getElementById('testConnBtn').addEventListener('click', async () => {
   el.textContent = 'กำลังทดสอบ...';
   el.style.color = 'var(--muted)';
   try {
-    const res  = await fetch(GAS_URL + '?action=ping');
-    const data = await res.json();
+    const data = await api({ action: 'ping' });
     if (data.ok) {
       el.textContent = '✅ เชื่อมต่อ GAS สำเร็จ';
       el.style.color = 'var(--success)';
@@ -416,7 +420,7 @@ let PRODUCTS = [];
 async function loadInit() {
   setLoading(true, 'กำลังโหลดข้อมูล...');
   try {
-    const data = await apiGet('getInit');
+    const data = await api({ action: 'getInit' });
     PRODUCTS = data.products || [];
     renderDashboard(data.dashboard);
     refreshPaymentSummary(data.dashboard);
@@ -472,8 +476,8 @@ document.getElementById('analyzeBtn').addEventListener('click', async () => {
     const base64   = dataUrl.split(',')[1];
     const mimeType = dataUrl.match(/data:(.*);base64/)[1];
 
-    // ส่งรูปไปให้ GAS เรียก Gemini แทน (Gemini Key อยู่ใน GAS Script Properties — ปลอดภัย)
-    const res = await apiPost({ action: 'analyzeImage', base64, mimeType });
+    // ส่งรูปไปให้ GAS เรียก Gemini แทน (ใช้ POST เพราะ base64 ใหญ่เกิน URL)
+    const res = await apiPostImage(base64, mimeType);
     setLoading(false);
     onAnalyzeSuccess(res);
   } catch (e) {
@@ -568,11 +572,12 @@ document.getElementById('saveSalesBtn').addEventListener('click', async () => {
 
   setLoading(true, 'กำลังบันทึก...');
   try {
-    const res = await apiPost({
+    const res = await api({
       action: 'saveSales',
       date: document.getElementById('dateInput').value,
       payType: document.getElementById('payTypeSelect').value,
-      items, newProducts: newProds
+      items: items,
+      newProducts: newProds
     });
     setLoading(false);
     toast('✅ บันทึกสำเร็จ ' + res.rowsAdded + ' รายการ');
@@ -600,7 +605,7 @@ document.getElementById('savePayBtn').addEventListener('click', async () => {
 
   setLoading(true, 'กำลังบันทึกรับเงิน...');
   try {
-    await apiPost({ action: 'savePayment', date: d, amount, notes: document.getElementById('payNotesInput').value });
+    await api({ action: 'savePayment', date: d, amount, notes: document.getElementById('payNotesInput').value });
     setLoading(false);
     toast('✅ บันทึกรับเงิน ' + fmtMoney(amount) + ' สำเร็จ');
     document.getElementById('payAmountInput').value = '';
@@ -613,7 +618,7 @@ document.getElementById('savePayBtn').addEventListener('click', async () => {
 });
 
 async function refreshPaymentSummary(cached) {
-  const data = cached || await apiGet('getDashboard', { period: 'month' }).catch(() => null);
+  const data = cached || await api({ action: 'getDashboard', period: 'month' }).catch(() => null);
   if (!data) return;
   document.getElementById('ps-sales').textContent = fmtMoney(data.totalSales);
   document.getElementById('ps-recv').textContent  = fmtMoney(data.totalReceived);
@@ -683,7 +688,7 @@ function drawChart(canvasId, wrapId, dataset, type, labelFn, valFn, existing, ho
 
 async function refreshDashboard() {
   try {
-    const data = await apiGet('getDashboard', { period: currentPeriod });
+    const data = await api({ action: 'getDashboard', period: currentPeriod });
     renderDashboard(data);
     refreshPaymentSummary(data);
   } catch(e) {
@@ -708,7 +713,7 @@ document.getElementById('setupMonthlyBtn').addEventListener('click', async () =>
   setLoading(true, 'กำลังตั้งค่าสูตร Monthly...');
   const el = document.getElementById('setupStatus');
   try {
-    const res = await apiPost({ action: 'setupMonthly' });
+    const res = await api({ action: 'setupMonthly' });
     setLoading(false);
     el.textContent = '✅ ตั้งค่าสูตรสำเร็จในชีต "' + res.sheet + '"';
     el.style.color = 'var(--success)';
