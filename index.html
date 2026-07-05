@@ -71,9 +71,15 @@
     .stat .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.3; }
 
     /* Period toggle */
-    .period-toggle { display: flex; gap: 6px; margin-bottom: 12px; }
-    .period-toggle button { flex: 1; padding: 8px 4px; font-size: 13px; background: #fff; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; line-height: 1.4; }
+    .period-toggle { display: flex; gap: 5px; margin-bottom: 8px; flex-wrap: wrap; }
+    .period-toggle button { flex: 1; min-width: 60px; padding: 7px 4px; font-size: 12px; background: #fff; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; line-height: 1.4; }
     .period-toggle button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .picker-row { background: #f8faf9; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; display: none; }
+    .picker-row.show { display: block; }
+    .picker-row label { font-size: 12px; color: var(--muted); margin-bottom: 3px; display: block; }
+    .picker-inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .picker-inline span { font-size: 13px; color: var(--muted); }
+    .picker-inline input, .picker-inline select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; background: #fff; }
 
     /* Charts */
     .chart-wrap { position: relative; height: 220px; margin-top: 6px; }
@@ -221,6 +227,35 @@
       <button id="pg-day">วันนี้</button>
       <button id="pg-month" class="active">เดือนนี้</button>
       <button id="pg-year">ปีนี้</button>
+      <button id="pg-all">ทั้งหมด</button>
+      <button id="pg-custom">กำหนดเอง</button>
+    </div>
+
+    <!-- Picker row (contextual) -->
+    <div class="picker-row" id="pickerRow">
+      <!-- วันนี้: เลือกวันที่ -->
+      <div id="picker-day" style="display:none;">
+        <label>เลือกวันที่</label>
+        <input type="date" id="pickDay">
+      </div>
+      <!-- เดือนนี้: เลือกเดือน/ปี -->
+      <div id="picker-month" style="display:none;">
+        <label>เลือกเดือน</label>
+        <input type="month" id="pickMonth">
+      </div>
+      <!-- ปีนี้: เลือกปี -->
+      <div id="picker-year" style="display:none;">
+        <label>เลือกปี (ค.ศ.)</label>
+        <select id="pickYear"></select>
+      </div>
+      <!-- กำหนดเอง: from-to -->
+      <div id="picker-custom" style="display:none;">
+        <label>กำหนดช่วงวันที่</label>
+        <div class="picker-inline">
+          <input type="date" id="pickFrom"> <span>ถึง</span> <input type="date" id="pickTo">
+          <button class="btn-sm" id="applyCustomBtn" style="background:var(--accent);color:#fff;padding:8px 14px;">ดูข้อมูล</button>
+        </div>
+      </div>
     </div>
 
     <div class="stats3">
@@ -331,10 +366,12 @@ function thaiDateLabel(period) {
 }
 
 function updatePeriodButtons(active) {
-  ['day','month','year'].forEach(p => {
-    const btn  = document.getElementById('pg-'+p);
-    const base = p === 'day' ? 'วันนี้' : p === 'month' ? 'เดือนนี้' : 'ปีนี้';
-    btn.innerHTML = base + '<br><span style="font-size:10px;opacity:.85;font-weight:400;">' + thaiDateLabel(p) + '</span>';
+  const labels = { day:'วันนี้', month:'เดือนนี้', year:'ปีนี้', all:'ทั้งหมด', custom:'กำหนดเอง' };
+  ALL_PERIODS.forEach(p => {
+    const btn = document.getElementById('pg-'+p);
+    if (!btn) return;
+    const sub = p !== 'all' && p !== 'custom' ? '<br><span style="font-size:10px;opacity:.85;font-weight:400;">'+thaiDateLabel(p)+'</span>' : '';
+    btn.innerHTML = labels[p] + sub;
     btn.classList.toggle('active', p === active);
   });
 }
@@ -651,6 +688,96 @@ async function refreshPaymentSummary(cached) {
 let catChartInst = null, trendChartInst = null, currentPeriod = 'month';
 let dashInterval = null;
 
+// --- Year picker population ---
+function populateYearPicker() {
+  const sel = document.getElementById('pickYear');
+  const cur = new Date().getFullYear();
+  sel.innerHTML = '';
+  for (let y = cur; y >= 2020; y--) {
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y + ' (พ.ศ. ' + (y+543) + ')';
+    sel.appendChild(opt);
+  }
+}
+populateYearPicker();
+
+// Default picker values to current date/month/year
+document.getElementById('pickDay').value   = today();
+document.getElementById('pickMonth').value = today().slice(0,7);
+document.getElementById('pickFrom').value  = today().slice(0,8) + '01';
+document.getElementById('pickTo').value    = today();
+
+// --- getFromTo: compute from/to date strings for the selected period ---
+function getFromTo(period) {
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  if (period === 'all') return {};
+
+  if (period === 'day') {
+    const val = document.getElementById('pickDay').value || today();
+    return { from: val, to: val };
+  }
+  if (period === 'month') {
+    const val = document.getElementById('pickMonth').value;
+    if (val) {
+      const [y,m] = val.split('-').map(Number);
+      const last  = new Date(y, m, 0).getDate();
+      return { from: val+'-01', to: val+'-'+pad(last) };
+    }
+    // default: current month
+    const y = d.getFullYear(), m = d.getMonth()+1;
+    const last = new Date(y, m, 0).getDate();
+    return { from: y+'-'+pad(m)+'-01', to: y+'-'+pad(m)+'-'+pad(last) };
+  }
+  if (period === 'year') {
+    const y = document.getElementById('pickYear').value || d.getFullYear();
+    return { from: y+'-01-01', to: y+'-12-31' };
+  }
+  if (period === 'custom') {
+    const f = document.getElementById('pickFrom').value;
+    const t = document.getElementById('pickTo').value;
+    if (!f || !t) { alert('กรุณาเลือกวันเริ่มต้นและวันสิ้นสุด'); return null; }
+    if (f > t) { alert('วันเริ่มต้นต้องอยู่ก่อนวันสิ้นสุด'); return null; }
+    return { from: f, to: t };
+  }
+  return {};
+}
+
+// --- Show/hide picker row ---
+function showPickerRow(period) {
+  const row = document.getElementById('pickerRow');
+  const hasPicker = ['day','month','year','custom'].includes(period);
+  row.classList.toggle('show', hasPicker);
+  ['day','month','year','custom'].forEach(p => {
+    document.getElementById('picker-'+p).style.display = (p === period) ? 'block' : 'none';
+  });
+}
+
+// --- Period button clicks ---
+const ALL_PERIODS = ['day','month','year','all','custom'];
+ALL_PERIODS.forEach(p => {
+  document.getElementById('pg-'+p).addEventListener('click', () => {
+    currentPeriod = p;
+    updatePeriodButtons(p);
+    showPickerRow(p);
+    const base = p==='day'?'วันนี้':p==='month'?'เดือนนี้':p==='year'?'ปีนี้':p==='all'?'ทั้งหมด':'กำหนดเอง';
+    document.getElementById('d-salesLabel').textContent = 'ยอด'+base;
+    document.getElementById('d-catLabel').textContent   = base;
+    document.getElementById('d-sales').textContent = '-';
+    if (p !== 'custom') refreshDashboard();
+  });
+});
+
+// Apply button for custom range
+document.getElementById('applyCustomBtn').addEventListener('click', refreshDashboard);
+
+// Auto-refresh when picker value changes (except custom)
+['pickDay','pickMonth','pickYear'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    if (currentPeriod !== 'custom') refreshDashboard();
+  });
+});
+
 function renderDashboard(d) {
   if (!d) return;
   const pLabel = d.periodLabel || 'เดือนนี้';
@@ -707,8 +834,10 @@ function drawChart(canvasId, wrapId, dataset, type, labelFn, valFn, existing, ho
 }
 
 async function refreshDashboard() {
+  const ft = getFromTo(currentPeriod);
+  if (ft === null) return; // validation failed (custom range)
   try {
-    const data = await api({ action: 'getDashboard', period: currentPeriod });
+    const data = await api({ action: 'getDashboard', period: currentPeriod, ...ft });
     renderDashboard(data);
     refreshPaymentSummary(data);
   } catch(e) {
@@ -719,18 +848,6 @@ async function refreshDashboard() {
 function startAutoRefresh() { stopAutoRefresh(); dashInterval = setInterval(refreshDashboard, 30000); }
 function stopAutoRefresh()  { if (dashInterval) { clearInterval(dashInterval); dashInterval = null; } }
 
-['day','month','year'].forEach(p => {
-  document.getElementById('pg-'+p).addEventListener('click', () => {
-    currentPeriod = p;
-    updatePeriodButtons(p);
-    // อัพเดท label ทันที ไม่ต้องรอ fetch
-    const base = p === 'day' ? 'วันนี้' : p === 'month' ? 'เดือนนี้' : 'ปีนี้';
-    document.getElementById('d-salesLabel').textContent  = 'ยอด' + base;
-    document.getElementById('d-catLabel').textContent    = base;
-    document.getElementById('d-sales').textContent       = '-';
-    refreshDashboard();
-  });
-});
 document.getElementById('refreshBtn').addEventListener('click', refreshDashboard);
 
 document.getElementById('setupMonthlyBtn').addEventListener('click', async () => {
@@ -752,9 +869,10 @@ document.getElementById('setupMonthlyBtn').addEventListener('click', async () =>
 // ============================================================
 // INIT
 // ============================================================
-document.getElementById('dateInput').value = today();
+document.getElementById('dateInput').value    = today();
 document.getElementById('payDateInput').value = today();
 updatePeriodButtons('month');
+showPickerRow('month');
 if (!GAS_URL || GAS_URL === 'PASTE_YOUR_GAS_URL_HERE') {
   document.getElementById('headerSub').textContent = '⚠️ ยังไม่ได้ตั้งค่า GAS_URL ในโค้ด';
 } else {
